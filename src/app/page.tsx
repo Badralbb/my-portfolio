@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { saveAs } from "file-saver";
 
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,14 @@ import {
   Sun,
   Moon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function Portfolio() {
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll();
+  const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -80]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.25], [1, 0.35]);
 
   function DarkOn() {
     setDark(true);
@@ -36,6 +40,28 @@ export default function Portfolio() {
   }
 
   const [activeSection, setActiveSection] = useState("home");
+
+  useEffect(() => {
+    const sectionIds = ["home", "about", "experience", "projects", "contact"];
+    const observers: IntersectionObserver[] = [];
+
+    sectionIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) setActiveSection(id);
+        },
+        { threshold: 0.4 }
+      );
+
+      observer.observe(el);
+      observers.push(observer);
+    });
+
+    return () => observers.forEach((observer) => observer.disconnect());
+  }, []);
 
   const handleDownload = () => {
     fetch("/resume.pdf")
@@ -219,19 +245,6 @@ export default function Portfolio() {
         "Mentored students in problem-solving, debugging, and best coding practices",
       ],
     },
-    {
-      title: "Shop Assistant",
-      company: "Dorj Zandan LLC",
-      period: "2019 - 2021",
-      location: "Ulaanbaatar, Mongolia",
-      description:
-        "Provided excellent customer service, managed sales transactions, and maintained store organization in a fast-paced retail environment.",
-      achievements: [
-        "Assisted over 100 customers daily, ensuring high satisfaction and repeat business",
-        "Managed inventory and restocked merchandise efficiently, reducing stockouts by 20%",
-        "Trained new staff on store procedures and customer service best practices",
-      ],
-    },
   ];
 
   const Navigation = () => (
@@ -254,21 +267,32 @@ export default function Portfolio() {
           </motion.div>
 
           <div className="hidden md:flex space-x-8 items-center">
-            {["Home", "About", "Experience", "Projects", "Contact"].map(
-              (item) => (
+            {["Home", "About", "Experience", "Projects", "Contact"].map((item) => {
+              const section = item.toLowerCase();
+              const active = activeSection === section;
+
+              return (
                 <motion.a
                   key={item}
-                  href={`#${item.toLowerCase()}`}
-                  className="text-muted-foreground dark:text-slate-300 
-                       hover:text-foreground dark:hover:text-white 
-                       transition-colors"
+                  href={`#${section}`}
+                  className={`relative px-1 py-1 transition-colors ${
+                    active
+                      ? "text-foreground dark:text-white"
+                      : "text-muted-foreground dark:text-slate-300 hover:text-foreground dark:hover:text-white"
+                  }`}
                   whileHover={{ scale: 1.05 }}
-                  onClick={() => setActiveSection(item.toLowerCase())}
+                  onClick={() => setActiveSection(section)}
                 >
                   {item}
+                  {active && (
+                    <motion.span
+                      layoutId="active-nav"
+                      className="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-indigo-500 dark:bg-indigo-400"
+                    />
+                  )}
                 </motion.a>
-              )
-            )}
+              );
+            })}
             {dark ? (
               <Sun
                 onClick={DarkOff}
@@ -287,14 +311,34 @@ export default function Portfolio() {
   );
 
   return (
-    <div className="min-h-screen bg-background dark:bg-gray-900">
+    <div
+      ref={containerRef}
+      className="relative min-h-screen overflow-x-hidden bg-slate-50 text-foreground dark:bg-slate-950"
+    >
+      <motion.div
+        className="fixed left-0 top-0 z-[60] h-1 origin-left bg-gradient-to-r from-indigo-500 via-sky-500 to-purple-500"
+        style={{ scaleX: scrollYProgress, width: "100%" }}
+      />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none fixed -left-32 top-24 h-72 w-72 rounded-full bg-indigo-300/30 blur-3xl dark:bg-indigo-500/20"
+        animate={{ y: [0, 40, 0], x: [0, 20, 0] }}
+        transition={{ duration: 12, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+      />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none fixed -right-24 bottom-8 h-80 w-80 rounded-full bg-sky-300/30 blur-3xl dark:bg-sky-500/20"
+        animate={{ y: [0, -30, 0], x: [0, -20, 0] }}
+        transition={{ duration: 14, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+      />
       <Navigation />
 
       <section
         id="home"
-        className="min-h-screen flex items-center justify-center px-4 pt-20 bg-background text-foreground transition-colors duration-300"
+        className="min-h-screen flex items-center justify-center px-4 pt-24 pb-12 bg-gradient-to-b from-slate-100 via-white to-slate-50 text-foreground transition-colors duration-300 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"
       >
         <motion.div
+          style={{ y: heroY, opacity: heroOpacity }}
           className="text-center max-w-4xl mx-auto"
           initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
@@ -318,7 +362,7 @@ export default function Portfolio() {
 
           {/* Name */}
           <motion.h1
-            className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-foreground dark:text-white/90 muted-foreground bg-clip-text text-transparent"
+            className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent dark:from-white dark:to-slate-300"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4, duration: 0.8 }}
@@ -328,7 +372,7 @@ export default function Portfolio() {
 
           {/* Role */}
           <motion.p
-            className="text-xl md:text-2xl text-muted-foreground mb-8 dark:text-white font-medium"
+            className="text-xl md:text-2xl text-slate-600 mb-8 dark:text-slate-200 font-medium"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.8 }}
@@ -338,7 +382,7 @@ export default function Portfolio() {
 
           {/* Bio */}
           <motion.p
-            className="text-lg text-muted-foreground mb-12 max-w-2xl mx-auto dark:text-white"
+            className="text-lg text-slate-600 mb-12 max-w-2xl mx-auto dark:text-slate-300"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8, duration: 0.8 }}
@@ -391,7 +435,7 @@ export default function Portfolio() {
               <div className="text-3xl font-bold text-accent mb-2 dark:text-white/90">
                 10+
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-slate-500 dark:text-slate-400">
                 Projects Completed
               </div>
             </div>
@@ -399,7 +443,7 @@ export default function Portfolio() {
               <div className="text-3xl font-bold text-accent mb-2 dark:text-white/90">
                 2+
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-slate-500 dark:text-slate-400">
                 Years Experience
               </div>
             </div>
@@ -407,7 +451,7 @@ export default function Portfolio() {
               <div className="text-3xl font-bold text-accent mb-2 dark:text-white/90">
                 400+
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-slate-500 dark:text-slate-400">
                 Leetcode Problems
               </div>
             </div>
@@ -415,16 +459,22 @@ export default function Portfolio() {
               <div className="text-3xl font-bold text-accent mb-2 dark:text-white/90">
                 15+
               </div>
-              <div className="text-sm text-muted-foreground">Technologies</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Technologies
+              </div>
             </div>
           </motion.div>
         </motion.div>
       </section>
 
       {/* About Section */}
-      <section
+      <motion.section
         id="about"
-        className="py-20 px-4 bg-background text-foreground transition-colors duration-300"
+        className="py-20 px-4 bg-white text-foreground transition-colors duration-300 dark:bg-slate-900"
+        initial={{ opacity: 0, y: 70 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.8 }}
       >
         <div className="max-w-4xl mx-auto">
           <motion.div
@@ -532,12 +582,16 @@ export default function Portfolio() {
             </motion.div>
           </motion.div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Experience Section */}
-      <section
+      <motion.section
         id="experience"
-        className="py-20 px-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-300"
+        className="py-20 px-4 bg-slate-100 dark:bg-slate-950 transition-colors duration-300"
+        initial={{ opacity: 0, y: 70 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.15 }}
+        transition={{ duration: 0.8 }}
       >
         <div className="max-w-6xl mx-auto">
           <motion.div
@@ -564,7 +618,7 @@ export default function Portfolio() {
           >
             {experiences.map((exp, index) => (
               <motion.div key={index} variants={fadeInUp}>
-                <Card className="p-6 hover:shadow-lg transition-shadow duration-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                <Card className="p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
                   <div className="flex flex-col md:flex-row md:items-start gap-4">
                     <div className="flex-1">
                       <div className="flex flex-col md:flex-row md:items-center gap-2 mb-2">
@@ -614,12 +668,16 @@ export default function Portfolio() {
             ))}
           </motion.div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Projects Section */}
-      <section
+      <motion.section
         id="projects"
-        className="py-20 px-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-300"
+        className="py-20 px-4 bg-white dark:bg-slate-900 transition-colors duration-300"
+        initial={{ opacity: 0, y: 70 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.15 }}
+        transition={{ duration: 0.8 }}
       >
         <div className="max-w-6xl mx-auto">
           <motion.div
@@ -650,8 +708,14 @@ export default function Portfolio() {
               {projects
                 .filter((p) => p.featured)
                 .map((project, index) => (
-                  <motion.div key={project.title} variants={fadeInUp}>
-                    <Card className="group hover:shadow-xl transition-all duration-300 overflow-hidden h-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <motion.div
+                    key={project.title}
+                    variants={fadeInUp}
+                    whileHover={{ y: -8, rotateX: 2, rotateY: -2 }}
+                    transition={{ duration: 0.3 }}
+                    style={{ transformStyle: "preserve-3d" }}
+                  >
+                    <Card className="group hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
                       <div className="relative overflow-hidden">
                         <img
                           src={project.image || "/placeholder.svg"}
@@ -690,7 +754,7 @@ export default function Portfolio() {
                             </a>
                           </Button>
                         </div>
-                        <Badge className="absolute top-2 right-2 bg-white text-gray-800 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
+                        <Badge className="absolute top-2 right-2 bg-white/95 text-gray-800 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
                           Featured
                         </Badge>
                       </div>
@@ -718,12 +782,16 @@ export default function Portfolio() {
             </div>
           </motion.div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Contact Section */}
-      <section
+      <motion.section
         id="contact"
-        className="py-20 px-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-300"
+        className="py-20 px-4 bg-slate-100 dark:bg-slate-950 transition-colors duration-300"
+        initial={{ opacity: 0, y: 70 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.15 }}
+        transition={{ duration: 0.8 }}
       >
         <div className="max-w-4xl mx-auto">
           <motion.div
@@ -752,7 +820,7 @@ export default function Portfolio() {
           >
             {/* Image Card */}
             <motion.div variants={fadeInUp}>
-              <Card className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden shadow-sm">
+              <Card className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md overflow-hidden shadow-sm">
                 <img
                   src="/bdrl.jpeg"
                   className="w-full h-full object-cover rounded-md"
@@ -863,7 +931,7 @@ export default function Portfolio() {
             </motion.div>
           </motion.div>
         </div>
-      </section>
+      </motion.section>
     </div>
   );
 }
